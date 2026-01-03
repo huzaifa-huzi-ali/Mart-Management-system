@@ -102,4 +102,32 @@ const API_BASE_URL = 'http://localhost:5000/api';
           npm run dev      # Nodemon development
           npm start        # Production server
   
-  
+# 🤝 Contributing
+Fork the repository
+Create feature branch (git checkout -b feature/AmazingFeature)
+Commit changes (git commit -m 'Add some AmazingFeature')
+Push to branch (git push origin feature/AmazingFeature)
+Open Pull Request
+
+# 📄 License
+This project is open source and available under the MIT License.
+
+# 👥 Roles Team
+Admin/Manager: Full system control
+Chef: Menu & recipe management
+Cashier: Order & payment processing
+Inventory Control: Stock operations
+Waiter/Staff: Order viewing
+
+# ⭐ Star us on GitHub if this helps your food business!
+This README includes:
+- ✅ Visual flow diagrams (Mermaid)
+- ✅ Clear setup instructions
+- ✅ Project architecture overview
+- ✅ Role-based permissions table
+- ✅ Screenshots placeholders
+- ✅ Quick start commands
+- ✅ Environment setup
+- ✅ API integration guide
+
+# Would you like me to adjust any section, add specific screenshots, or customize the styling further?
