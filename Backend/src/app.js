@@ -1,33 +1,36 @@
-// const express = require('express');
-// require('dotenv').config();
-
-// const app = express();
-// app.use(express.json());
-
-// app.get('/', (req, res) => {
-//   res.send('Food Management API is running');
-// });
-
-// const authRoutes = require('./routes/auth.routes');
-// app.use('/api/auth', authRoutes);
-
-// const foodItemRoutes = require('./routes/foodItem.routes');
-// app.use('/api/food-items', foodItemRoutes);
-
-
-// module.exports = app;
-
 
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
-require('dotenv').config();
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 
 // Create Express app
 const app = express();
+app.disable('x-powered-by');
+app.set('trust proxy', 1);
 
 // Middleware
-app.use(cors());
+const allowedOrigins = (process.env.CORS_ORIGIN || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin: allowedOrigins.length === 0 ? true : allowedOrigins,
+    credentials: true,
+  })
+);
+app.use(helmet());
+app.use(
+  rateLimit({
+    windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000),
+    max: Number(process.env.RATE_LIMIT_MAX || 300),
+    standardHeaders: true,
+    legacyHeaders: false,
+  })
+);
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
@@ -76,7 +79,7 @@ app.get('/api/teststock', (req, res) => {
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({ message: 'Server Error', error: err.message });
+  res.status(500).json({ message: 'Server error' });
 });
 
 module.exports = app;

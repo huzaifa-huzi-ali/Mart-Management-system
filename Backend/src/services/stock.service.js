@@ -1,73 +1,60 @@
-const { poolPromise, sql } = require('../config/db');
+const db = require('../config/db');
 
 class StockService {
   async getAllStock() {
-    const pool = await poolPromise;
-    const result = await pool.request().query(`
-      SELECT s.stock_id, s.ingredient_id, i.name as ingredient_name, s.quantity_available, s.last_updated 
-      FROM dbo.Stock s
-      JOIN dbo.Ingredient i ON s.ingredient_id = i.ingredient_id
+    const result = await db.query(`
+      SELECT s.stock_id, s.ingredient_id, i.name AS ingredient_name, s.quantity_available, s.last_updated
+      FROM Stock s
+      JOIN Ingredient i ON s.ingredient_id = i.ingredient_id
+      ORDER BY s.stock_id
     `);
-    return result.recordset;
+    return result.rows;
   }
 
   async getStockById(id) {
-    const pool = await poolPromise;
-    const result = await pool.request()
-      .input('id', sql.Int, id)
-      .query(`
-        SELECT s.stock_id, s.ingredient_id, i.name as ingredient_name, s.quantity_available, s.last_updated 
-        FROM dbo.Stock s
-        JOIN dbo.Ingredient i ON s.ingredient_id = i.ingredient_id
-        WHERE s.stock_id = @id
-      `);
-    return result.recordset[0];
+    const result = await db.query(
+      `SELECT s.stock_id, s.ingredient_id, i.name AS ingredient_name, s.quantity_available, s.last_updated
+       FROM Stock s
+       JOIN Ingredient i ON s.ingredient_id = i.ingredient_id
+       WHERE s.stock_id = $1`,
+      [id]
+    );
+    return result.rows[0];
   }
 
   async createStock(data) {
-    const { ingredient_id, quantity_available } = data;
-    const pool = await poolPromise;
-    
-    // Check if stock already exists
-    const check = await pool.request()
-        .input('ingredient_id', sql.Int, ingredient_id)
-        .query('SELECT * FROM dbo.Stock WHERE ingredient_id = @ingredient_id');
-    
-    if (check.recordset.length > 0) {
-        throw new Error('Stock already exists for this item');
+    const ingredientId = data.ingredient_id ?? data.food_item_id;
+    const { quantity_available } = data;
+
+    const check = await db.query('SELECT 1 FROM Stock WHERE ingredient_id = $1', [ingredientId]);
+    if (check.rows.length > 0) {
+      throw new Error('Stock already exists for this item');
     }
 
-    const result = await pool.request()
-      .input('ingredient_id', sql.Int, ingredient_id)
-      .input('quantity_available', sql.Decimal(10, 2), quantity_available)
-      .query(`
-        INSERT INTO dbo.Stock (ingredient_id, quantity_available, last_updated) 
-        VALUES (@ingredient_id, @quantity_available, GETDATE());
-        SELECT SCOPE_IDENTITY() AS stock_id;
-      `);
-    return { stock_id: result.recordset[0].stock_id };
+    const result = await db.query(
+      `INSERT INTO Stock (ingredient_id, quantity_available, last_updated)
+       VALUES ($1, $2, NOW())
+       RETURNING stock_id`,
+      [ingredientId, quantity_available]
+    );
+
+    return { stock_id: result.rows[0].stock_id };
   }
 
   async updateStock(id, data) {
     const { quantity_available } = data;
-    const pool = await poolPromise;
-    const result = await pool.request()
-      .input('id', sql.Int, id)
-      .input('quantity_available', sql.Decimal(10, 2), quantity_available)
-      .query(`
-        UPDATE dbo.Stock 
-        SET quantity_available = @quantity_available, last_updated = GETDATE()
-        WHERE stock_id = @id
-      `);
-    return result.rowsAffected[0] > 0;
+    const result = await db.query(
+      `UPDATE Stock
+       SET quantity_available = $1, last_updated = NOW()
+       WHERE stock_id = $2`,
+      [quantity_available, id]
+    );
+    return result.rowCount > 0;
   }
 
   async deleteStock(id) {
-    const pool = await poolPromise;
-    const result = await pool.request()
-      .input('id', sql.Int, id)
-      .query('DELETE FROM dbo.Stock WHERE stock_id = @id');
-    return result.rowsAffected[0] > 0;
+    const result = await db.query('DELETE FROM Stock WHERE stock_id = $1', [id]);
+    return result.rowCount > 0;
   }
 }
 

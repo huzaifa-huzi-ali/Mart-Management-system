@@ -1,6 +1,6 @@
 module.exports = (...allowedRoles) => {
   return (req, res, next) => {
-    const userRoles = req.user.roles;
+    const userRoles = Array.isArray(req.user?.roles) ? req.user.roles : [];
 
     const hasAccess = userRoles.some(role =>
       allowedRoles.includes(role)

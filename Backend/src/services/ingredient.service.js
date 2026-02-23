@@ -1,48 +1,37 @@
-const { poolPromise, sql } = require('../config/db');
+const db = require('../config/db');
 
 class IngredientService {
   async getAllIngredients() {
-    const pool = await poolPromise;
-    const result = await pool.request().query('SELECT * FROM dbo.Ingredient');
-    return result.recordset;
+    const result = await db.query('SELECT * FROM Ingredient ORDER BY ingredient_id');
+    return result.rows;
   }
 
   async getIngredientById(id) {
-    const pool = await poolPromise;
-    const result = await pool.request()
-      .input('id', sql.Int, id)
-      .query('SELECT * FROM dbo.Ingredient WHERE ingredient_id=@id');
-    return result.recordset[0];
+    const result = await db.query('SELECT * FROM Ingredient WHERE ingredient_id = $1', [id]);
+    return result.rows[0];
   }
 
   async createIngredient(data) {
     const { name, description } = data;
-    const pool = await poolPromise;
-    const result = await pool.request()
-      .input('name', sql.VarChar(150), name)
-      .input('description', sql.VarChar(255), description || null)
-      .query(`INSERT INTO dbo.Ingredient (name, description) VALUES (@name, @description);
-              SELECT SCOPE_IDENTITY() AS ingredient_id;`);
-    return { ingredient_id: result.recordset[0].ingredient_id, name, description };
+    const result = await db.query(
+      'INSERT INTO Ingredient (name, description) VALUES ($1, $2) RETURNING ingredient_id',
+      [name, description ?? null]
+    );
+    return { ingredient_id: result.rows[0].ingredient_id, name, description };
   }
 
   async updateIngredient(id, data) {
     const { name, description } = data;
-    const pool = await poolPromise;
-    const result = await pool.request()
-      .input('id', sql.Int, id)
-      .input('name', sql.VarChar(150), name)
-      .input('description', sql.VarChar(255), description || null)
-      .query('UPDATE dbo.Ingredient SET name=@name, description=@description WHERE ingredient_id=@id');
-    return result.rowsAffected[0] > 0;
+    const result = await db.query(
+      'UPDATE Ingredient SET name = $1, description = $2 WHERE ingredient_id = $3',
+      [name, description ?? null, id]
+    );
+    return result.rowCount > 0;
   }
 
   async deleteIngredient(id) {
-    const pool = await poolPromise;
-    const result = await pool.request()
-      .input('id', sql.Int, id)
-      .query('DELETE FROM dbo.Ingredient WHERE ingredient_id=@id');
-    return result.rowsAffected[0] > 0;
+    const result = await db.query('DELETE FROM Ingredient WHERE ingredient_id = $1', [id]);
+    return result.rowCount > 0;
   }
 }
 

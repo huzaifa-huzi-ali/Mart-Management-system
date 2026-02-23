@@ -1,25 +1,22 @@
-const { poolPromise, sql } = require('../config/db');
+const db = require('../config/db');
 
 exports.getDashboardStats = async (req, res) => {
   try {
-    const pool = await poolPromise;
-    
-    const result = await pool.request().query(`
-      SELECT 
-        (SELECT COUNT(*) FROM dbo.FoodItem) as totalFoodItems,
-        (SELECT COUNT(*) FROM dbo.Purchase) as monthlyPurchases,
-        (SELECT COUNT(*) FROM dbo.[User]) as systemUsers
+    const result = await db.query(`
+      SELECT
+        (SELECT COUNT(*) FROM FoodItem) AS "totalFoodItems",
+        (SELECT COUNT(*) FROM Purchase) AS "monthlyPurchases",
+        (SELECT COUNT(*) FROM "User") AS "systemUsers"
     `);
-    
-    const stats = result.recordset[0];
-    
-    // Calculate stock from Stock table
-    const stockResult = await pool.request().query(`
-        SELECT ISNULL(SUM(quantity_available), 0) as itemsInStock
-        FROM dbo.Stock
+
+    const stats = result.rows[0];
+
+    const stockResult = await db.query(`
+      SELECT COALESCE(SUM(quantity_available), 0) AS "itemsInStock"
+      FROM Stock
     `);
-    
-    stats.itemsInStock = stockResult.recordset[0].itemsInStock;
+
+    stats.itemsInStock = stockResult.rows[0].itemsInStock;
 
     res.json({ message: 'Stats fetched successfully', data: stats });
   } catch (err) {

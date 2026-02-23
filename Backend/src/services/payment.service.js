@@ -1,51 +1,38 @@
-const { poolPromise, sql } = require('../config/db');
+const db = require('../config/db');
 
 class PaymentService {
   async getAllPayments() {
-    const pool = await poolPromise;
-    const result = await pool.request().query('SELECT * FROM dbo.Payment');
-    return result.recordset;
+    const result = await db.query('SELECT * FROM Payment ORDER BY payment_id');
+    return result.rows;
   }
 
   async getPaymentById(id) {
-    const pool = await poolPromise;
-    const result = await pool.request()
-      .input('id', sql.Int, id)
-      .query('SELECT * FROM dbo.Payment WHERE payment_id=@id');
-    return result.recordset[0];
+    const result = await db.query('SELECT * FROM Payment WHERE payment_id = $1', [id]);
+    return result.rows[0];
   }
 
   async createPayment(data) {
     const { amount, method, order_id } = data;
-    const pool = await poolPromise;
-    const result = await pool.request()
-      .input('amount', sql.Decimal(10, 2), amount)
-      .input('method', sql.VarChar(50), method)
-      .input('order_id', sql.Int, order_id)
-      .query(`INSERT INTO dbo.Payment (amount, method, order_id)
-              VALUES (@amount, @method, @order_id);
-              SELECT SCOPE_IDENTITY() AS payment_id;`);
-    return { payment_id: result.recordset[0].payment_id, amount, method, order_id };
+    const result = await db.query(
+      'INSERT INTO Payment (amount, method, order_id) VALUES ($1, $2, $3) RETURNING payment_id',
+      [amount, method, order_id ?? null]
+    );
+
+    return { payment_id: result.rows[0].payment_id, amount, method, order_id: order_id ?? null };
   }
 
   async updatePayment(id, data) {
     const { amount, method, order_id } = data;
-    const pool = await poolPromise;
-    const result = await pool.request()
-      .input('id', sql.Int, id)
-      .input('amount', sql.Decimal(10, 2), amount)
-      .input('method', sql.VarChar(50), method)
-      .input('order_id', sql.Int, order_id)
-      .query('UPDATE dbo.Payment SET amount=@amount, method=@method, order_id=@order_id WHERE payment_id=@id');
-    return result.rowsAffected[0] > 0;
+    const result = await db.query(
+      'UPDATE Payment SET amount = $1, method = $2, order_id = $3 WHERE payment_id = $4',
+      [amount, method, order_id ?? null, id]
+    );
+    return result.rowCount > 0;
   }
 
   async deletePayment(id) {
-    const pool = await poolPromise;
-    const result = await pool.request()
-      .input('id', sql.Int, id)
-      .query('DELETE FROM dbo.Payment WHERE payment_id=@id');
-    return result.rowsAffected[0] > 0;
+    const result = await db.query('DELETE FROM Payment WHERE payment_id = $1', [id]);
+    return result.rowCount > 0;
   }
 }
 

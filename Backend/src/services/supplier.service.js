@@ -1,82 +1,66 @@
-const { poolPromise, sql } = require('../config/db');
+const db = require('../config/db');
 
 class SupplierService {
   async getAllSuppliers() {
-    const pool = await poolPromise;
-    const result = await pool.request().query('SELECT * FROM dbo.Supplier');
-    return result.recordset;
+    const result = await db.query('SELECT * FROM Supplier ORDER BY supplier_id');
+    return result.rows;
   }
 
   async getSupplierById(id) {
-    const pool = await poolPromise;
-    const result = await pool.request()
-      .input('id', sql.Int, id)
-      .query('SELECT * FROM dbo.Supplier WHERE supplier_id=@id');
-    return result.recordset[0];
+    const result = await db.query('SELECT * FROM Supplier WHERE supplier_id = $1', [id]);
+    return result.rows[0];
   }
 
   async createSupplier(data) {
     const { name, contact, phone } = data;
-    const pool = await poolPromise;
-    const result = await pool.request()
-      .input('name', sql.VarChar(150), name)
-      .input('contact', sql.VarChar(100), contact || null)
-      .input('phone', sql.VarChar(20), phone || null)
-      .query(`INSERT INTO dbo.Supplier (name, contact, phone)
-              VALUES (@name, @contact, @phone);
-              SELECT SCOPE_IDENTITY() AS supplier_id;`);
-    return { supplier_id: result.recordset[0].supplier_id, name, contact, phone };
+    const result = await db.query(
+      `INSERT INTO Supplier (name, contact, phone)
+       VALUES ($1, $2, $3)
+       RETURNING supplier_id`,
+      [name, contact ?? null, phone ?? null]
+    );
+
+    return { supplier_id: result.rows[0].supplier_id, name, contact, phone };
   }
 
   async updateSupplier(id, data) {
     const { name, contact, phone } = data;
-    const pool = await poolPromise;
-    const result = await pool.request()
-      .input('id', sql.Int, id)
-      .input('name', sql.VarChar(150), name)
-      .input('contact', sql.VarChar(100), contact || null)
-      .input('phone', sql.VarChar(20), phone || null)
-      .query(`UPDATE dbo.Supplier 
-              SET name=@name, contact=@contact, phone=@phone
-              WHERE supplier_id=@id`);
-    return result.rowsAffected[0] > 0;
+    const result = await db.query(
+      `UPDATE Supplier
+       SET name = $1, contact = $2, phone = $3
+       WHERE supplier_id = $4`,
+      [name, contact ?? null, phone ?? null, id]
+    );
+
+    return result.rowCount > 0;
   }
 
   async deleteSupplier(id) {
-    const pool = await poolPromise;
-    const transaction = new sql.Transaction(pool);
-    await transaction.begin();
-
+    const client = await db.pool.connect();
     try {
-        const request = new sql.Request(transaction);
-        request.input('id', sql.Int, id);
+      await client.query('BEGIN');
 
-        // Delete dependencies
-        // 1. Purchase Items linked to Purchases of this Supplier
-        await request.query(`
-            DELETE FROM dbo.PurchaseItem 
-            WHERE purchase_id IN (SELECT purchase_id FROM dbo.Purchase WHERE supplier_id=@id)
-        `);
-        
-        // 2. Purchases of this Supplier
-        await request.query('DELETE FROM dbo.Purchase WHERE supplier_id=@id');
+      await client.query(
+        `DELETE FROM PurchaseItem
+         WHERE purchase_id IN (SELECT purchase_id FROM Purchase WHERE supplier_id = $1)`,
+        [id]
+      );
 
-        // 3. FoodItem Links
-        await request.query('DELETE FROM dbo.FoodItemSupplier WHERE supplier_id=@id');
+      await client.query('DELETE FROM Purchase WHERE supplier_id = $1', [id]);
+      const result = await client.query('DELETE FROM Supplier WHERE supplier_id = $1', [id]);
 
-        // 4. Supplier
-        const result = await request.query('DELETE FROM dbo.Supplier WHERE supplier_id=@id');
+      if (result.rowCount === 0) {
+        await client.query('ROLLBACK');
+        return false;
+      }
 
-        if (result.rowsAffected[0] === 0) {
-             await transaction.rollback();
-             return false;
-        }
-
-        await transaction.commit();
-        return true;
+      await client.query('COMMIT');
+      return true;
     } catch (err) {
-        await transaction.rollback();
-        throw err;
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
     }
   }
 }

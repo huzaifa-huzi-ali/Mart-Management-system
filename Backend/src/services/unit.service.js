@@ -1,48 +1,56 @@
-const { poolPromise, sql } = require('../config/db');
+const db = require('../config/db');
 
 class UnitService {
   async getAllUnits() {
-    const pool = await poolPromise;
-    const result = await pool.request().query('SELECT * FROM dbo.Unit');
-    return result.recordset;
+    const result = await db.query(
+      `SELECT unit_id, unit_name, conversion_rate,
+              unit_name AS name,
+              conversion_rate AS abbreviation
+       FROM Unit
+       ORDER BY unit_id`
+    );
+    return result.rows;
   }
 
   async getUnitById(id) {
-    const pool = await poolPromise;
-    const result = await pool.request()
-      .input('id', sql.Int, id)
-      .query('SELECT * FROM dbo.Unit WHERE unit_id=@id');
-    return result.recordset[0];
+    const result = await db.query(
+      `SELECT unit_id, unit_name, conversion_rate,
+              unit_name AS name,
+              conversion_rate AS abbreviation
+       FROM Unit
+       WHERE unit_id = $1`,
+      [id]
+    );
+    return result.rows[0];
   }
 
   async createUnit(data) {
-    const { name, abbreviation } = data;
-    const pool = await poolPromise;
-    const result = await pool.request()
-      .input('name', sql.VarChar(100), name)
-      .input('abbreviation', sql.VarChar(10), abbreviation || null)
-      .query(`INSERT INTO dbo.Unit (name, abbreviation) VALUES (@name, @abbreviation);
-              SELECT SCOPE_IDENTITY() AS unit_id;`);
-    return { unit_id: result.recordset[0].unit_id, name, abbreviation };
+    const unitName = data.name ?? data.unit_name;
+    const conversionRate = data.conversion_rate ?? data.abbreviation ?? null;
+
+    const result = await db.query(
+      'INSERT INTO Unit (unit_name, conversion_rate) VALUES ($1, $2) RETURNING unit_id',
+      [unitName, conversionRate]
+    );
+
+    return { unit_id: result.rows[0].unit_id, name: unitName, abbreviation: conversionRate };
   }
 
   async updateUnit(id, data) {
-    const { name, abbreviation } = data;
-    const pool = await poolPromise;
-    const result = await pool.request()
-      .input('id', sql.Int, id)
-      .input('name', sql.VarChar(100), name)
-      .input('abbreviation', sql.VarChar(10), abbreviation || null)
-      .query('UPDATE dbo.Unit SET name=@name, abbreviation=@abbreviation WHERE unit_id=@id');
-    return result.rowsAffected[0] > 0;
+    const unitName = data.name ?? data.unit_name;
+    const conversionRate = data.conversion_rate ?? data.abbreviation ?? null;
+
+    const result = await db.query(
+      'UPDATE Unit SET unit_name = $1, conversion_rate = $2 WHERE unit_id = $3',
+      [unitName, conversionRate, id]
+    );
+
+    return result.rowCount > 0;
   }
 
   async deleteUnit(id) {
-    const pool = await poolPromise;
-    const result = await pool.request()
-      .input('id', sql.Int, id)
-      .query('DELETE FROM dbo.Unit WHERE unit_id=@id');
-    return result.rowsAffected[0] > 0;
+    const result = await db.query('DELETE FROM Unit WHERE unit_id = $1', [id]);
+    return result.rowCount > 0;
   }
 }
 

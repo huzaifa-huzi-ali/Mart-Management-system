@@ -1,48 +1,37 @@
-const { poolPromise, sql } = require('../config/db');
+const db = require('../config/db');
 
 class CategoryService {
   async getAllCategories() {
-    const pool = await poolPromise;
-    const result = await pool.request().query('SELECT * FROM Category');
-    return result.recordset;
+    const result = await db.query('SELECT * FROM Category ORDER BY category_id');
+    return result.rows;
   }
 
   async getCategoryById(id) {
-    const pool = await poolPromise;
-    const result = await pool.request()
-        .input('id', sql.Int, id)
-        .query('SELECT * FROM Category WHERE category_id=@id');
-    return result.recordset[0];
+    const result = await db.query('SELECT * FROM Category WHERE category_id = $1', [id]);
+    return result.rows[0];
   }
 
   async createCategory(data) {
     const { name, description } = data;
-    const pool = await poolPromise;
-    const result = await pool.request()
-      .input('name', sql.VarChar(100), name)
-      .input('description', sql.VarChar(255), description)
-      .query(`INSERT INTO Category (name, description) VALUES (@name, @description);
-              SELECT SCOPE_IDENTITY() AS category_id;`);
-    return { category_id: result.recordset[0].category_id, name, description };
+    const result = await db.query(
+      'INSERT INTO Category (name, description) VALUES ($1, $2) RETURNING category_id',
+      [name, description ?? null]
+    );
+    return { category_id: result.rows[0].category_id, name, description };
   }
 
   async updateCategory(id, data) {
     const { name, description } = data;
-    const pool = await poolPromise;
-    const result = await pool.request()
-      .input('id', sql.Int, id)
-      .input('name', sql.VarChar(100), name)
-      .input('description', sql.VarChar(255), description)
-      .query(`UPDATE Category SET name=@name, description=@description WHERE category_id=@id`);
-    return result.rowsAffected[0] > 0;
+    const result = await db.query(
+      'UPDATE Category SET name = $1, description = $2 WHERE category_id = $3',
+      [name, description ?? null, id]
+    );
+    return result.rowCount > 0;
   }
 
   async deleteCategory(id) {
-    const pool = await poolPromise;
-    const result = await pool.request()
-      .input('id', sql.Int, id)
-      .query('DELETE FROM Category WHERE category_id=@id');
-    return result.rowsAffected[0] > 0;
+    const result = await db.query('DELETE FROM Category WHERE category_id = $1', [id]);
+    return result.rowCount > 0;
   }
 }
 

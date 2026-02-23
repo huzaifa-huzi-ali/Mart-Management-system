@@ -26,11 +26,13 @@ exports.getStockById = async (req, res) => {
 
 // CREATE stock
 exports.createStock = async (req, res) => {
-  const { food_item_id, quantity_available } = req.body;
-  if (!food_item_id || quantity_available === undefined) return res.status(400).json({ message: 'Fields required' });
+  const { ingredient_id, food_item_id, quantity_available } = req.body;
+  if ((!ingredient_id && !food_item_id) || quantity_available === undefined) {
+    return res.status(400).json({ message: 'Fields required' });
+  }
 
   try {
-    const data = await stockService.createStock({ food_item_id, quantity_available });
+    const data = await stockService.createStock({ ingredient_id, food_item_id, quantity_available });
     res.status(201).json({ message: 'Stock created', data });
   } catch (err) {
     if (err.message === 'Stock already exists for this item') {

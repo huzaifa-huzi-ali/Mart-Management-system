@@ -8,7 +8,10 @@ module.exports = (req, res, next) => {
       return res.status(401).json({ message: 'Authorization header missing' });
     }
 
-    const token = authHeader.split(' ')[1]; // Bearer TOKEN
+    const [scheme, token] = authHeader.split(' ');
+    if (scheme !== 'Bearer') {
+      return res.status(401).json({ message: 'Invalid authorization scheme' });
+    }
 
     if (!token) {
       return res.status(401).json({ message: 'Token missing' });
