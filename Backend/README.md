@@ -7,10 +7,18 @@
 - Password hashing (`bcryptjs`)
 
 ## Quick Start
-1. Copy `.env.example` to `.env`.
-2. Fill required values (`DATABASE_URL`, `JWT_SECRET`, etc.).
-3. Install deps: `npm install`
-4. Run locally: `npm run dev`
+1. From the project root, start PostgreSQL: `docker compose up -d postgres`.
+2. Copy `.env.example` to `.env`.
+3. Install deps: `npm install`.
+4. Run locally: `npm run dev`.
+5. Open `http://localhost:5000/api/health`.
+
+The Docker database uses the local credentials already configured in `.env.example`.
+Stop it with `docker compose down`. To recreate and reinitialize the database, use
+`docker compose down -v` and then start it again.
+
+Local login: `admin@food.com` / `Admin123!`. Change this development-only password
+before using the application in any shared environment.
 
 ## Required Environment Variables
 - `DATABASE_URL` (PostgreSQL connection string)
